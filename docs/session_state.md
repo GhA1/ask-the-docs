@@ -1,0 +1,295 @@
+What is State?
+We define access to a Streamlit app in a browser tab as a session. For each browser tab that connects to the Streamlit server, a new session is created. By default, Streamlit reruns your script from top to bottom every time you interact with your app. Most input widgets accept on_change="ignore" to update without triggering a rerun; Python receives the new value on the next rerun. For st.tabs, st.expander, and st.popover, "ignore" is the default and turns off state tracking. You can also use forms to batch interactions until submission or fragments to rerun only part of your script. Each full-script rerun starts with a blank slate for regular Python variables, but values stored in Session State persist across full-script and fragment reruns.
+
+Session State is scoped to each user session. Streamlit also exposes the ability to manipulate state using Callbacks. Session State persists across pages inside a multipage app.
+
+In this guide, we will illustrate the usage of Session State and Callbacks as we build a stateful Counter app.
+
+For details on the Session State and Callbacks API, please refer to our Session State API Reference Guide.
+
+Also, check out this Session State basics tutorial video by Streamlit Developer Advocate Dr. Marisa Smith to get started:
+
+
+Build a Counter
+Let's call our script counter.py. It initializes a count variable and has a button to increment the value stored in the count variable:
+
+Python
+import streamlit as st
+
+st.title('Counter Example')
+count = 0
+
+increment = st.button('Increment')
+if increment:
+    count += 1
+
+st.write('Count = ', count)
+
+Copy
+No matter how many times we press the Increment button in the above app, the count remains at 1. Let's understand why:
+
+Each time we press the Increment button, Streamlit reruns counter.py from top to bottom, and with every run, count gets initialized to 0 .
+Pressing Increment subsequently adds 1 to 0, thus count=1 no matter how many times we press Increment.
+As we'll see later, we can avoid this issue by storing count as a Session State variable. By doing so, we're indicating to Streamlit that it should maintain the value stored inside a Session State variable across app reruns.
+
+Let's learn more about the API to use Session State.
+
+Initialization
+The Session State API follows a field-based API, which is very similar to Python dictionaries:
+
+Python
+import streamlit as st
+
+# Check if 'key' already exists in session_state
+# If not, then initialize it
+if 'key' not in st.session_state:
+    st.session_state['key'] = 'value'
+
+# Session State also supports the attribute based syntax
+if 'key' not in st.session_state:
+    st.session_state.key = 'value'
+
+Copy
+Reads and updates
+Read the value of an item in Session State by passing the item to st.write :
+
+Python
+import streamlit as st
+
+if 'key' not in st.session_state:
+    st.session_state['key'] = 'value'
+
+# Reads
+st.write(st.session_state.key)
+
+# Outputs: value
+
+Copy
+Update an item in Session State by assigning it a value:
+
+Python
+import streamlit as st
+
+if 'key' not in st.session_state:
+    st.session_state['key'] = 'value'
+
+# Updates
+st.session_state.key = 'value2'     # Attribute API
+st.session_state['key'] = 'value2'  # Dictionary like API
+
+Copy
+Streamlit throws an exception if an uninitialized variable is accessed:
+
+Python
+import streamlit as st
+
+st.write(st.session_state['value'])
+
+# Throws an exception!
+
+Copy
+state-uninitialized-exception
+Let's now take a look at a few examples that illustrate how to add Session State to our Counter app.
+
+Example 1: Add Session State
+Now that we've got a hang of the Session State API, let's update our Counter app to use Session State:
+
+Python
+import streamlit as st
+
+st.title('Counter Example')
+if 'count' not in st.session_state:
+    st.session_state.count = 0
+
+increment = st.button('Increment')
+if increment:
+    st.session_state.count += 1
+
+st.write('Count = ', st.session_state.count)
+
+Copy
+As you can see in the above example, pressing the Increment button updates the count each time.
+
+Example 2: Session State and Callbacks
+Now that we've built a basic Counter app using Session State, let's move on to something a little more complex. The next example uses Callbacks with Session State.
+
+Callbacks: A callback is a Python function which gets called when an input widget changes. Callbacks can be used with widgets using the parameters on_change (or on_click), args, and kwargs. The full Callbacks API can be found in our Session State API Reference Guide.
+
+Python
+import streamlit as st
+
+st.title('Counter Example using Callbacks')
+if 'count' not in st.session_state:
+    st.session_state.count = 0
+
+def increment_counter():
+    st.session_state.count += 1
+
+st.button('Increment', on_click=increment_counter)
+
+st.write('Count = ', st.session_state.count)
+
+Copy
+Now, pressing the Increment button updates the count each time by calling the increment_counter() function.
+
+Example 3: Use args and kwargs in Callbacks
+Callbacks also support passing arguments using the args parameter in a widget:
+
+Python
+import streamlit as st
+
+st.title('Counter Example using Callbacks with args')
+if 'count' not in st.session_state:
+    st.session_state.count = 0
+
+def update_counter(sign):
+    st.session_state.count += sign * st.session_state.increment_value
+
+st.number_input('Enter a value', value=0, step=1, key='increment_value')
+st.button('Increment', on_click=update_counter, args=(1,))
+st.button('Decrement', on_click=update_counter, args=(-1,))
+
+st.write('Count = ', st.session_state.count)
+
+Copy
+Additionally, we can also use the kwargs parameter in a widget to pass named arguments to the callback function as shown below:
+
+Python
+import streamlit as st
+
+st.title('Counter Example using Callbacks with kwargs')
+if 'count' not in st.session_state:
+    st.session_state.count = 0
+
+def increment_counter(increment_value=0):
+    st.session_state.count += increment_value
+
+def decrement_counter(decrement_value=0):
+    st.session_state.count -= decrement_value
+
+st.button('Increment', on_click=increment_counter,
+	kwargs=dict(increment_value=5))
+
+st.button('Decrement', on_click=decrement_counter,
+	kwargs=dict(decrement_value=1))
+
+st.write('Count = ', st.session_state.count)
+
+Copy
+Example 4: Forms and Callbacks
+Say we now want to not only increment the count, but also store when it was last updated. We illustrate doing this using Callbacks and st.form:
+
+Python
+import streamlit as st
+import datetime
+
+st.title('Counter Example')
+if 'count' not in st.session_state:
+    st.session_state.count = 0
+    st.session_state.last_updated = datetime.time(0,0)
+
+def update_counter():
+    st.session_state.count += st.session_state.increment_value
+    st.session_state.last_updated = st.session_state.update_time
+
+with st.form(key='my_form'):
+    st.time_input(label='Enter the time', value=datetime.datetime.now().time(), key='update_time')
+    st.number_input('Enter a value', value=0, step=1, key='increment_value')
+    submit = st.form_submit_button(label='Update', on_click=update_counter)
+
+st.write('Current Count = ', st.session_state.count)
+st.write('Last Updated = ', st.session_state.last_updated)
+
+Copy
+Advanced concepts
+Session State and Widget State association
+Session State provides the functionality to store variables across reruns. Widget state (i.e. the value of a widget) is also stored in a session.
+
+For simplicity, we have unified this information in one place. i.e. the Session State. This convenience feature makes it super easy to read or write to the widget's state anywhere in the app's code. Session State variables mirror the widget value using the key argument.
+
+star
+Tip
+Widget keys do more than connect widgets to Session State:
+
+With bind="query-params", a keyed widget keeps its value in the page URL, so people can bookmark and share a filtered view. For dashboard patterns, see Build advanced dashboards.
+When AI agents use your app through the agent API, give key= to every widget so agents can address it reliably. Without a key, agents use a generated ID that changes when the code or the widget's parameters change.
+We illustrate this with the following example. Let's say we have an app with a slider to represent temperature in Celsius. We can set and get the value of the temperature widget by using the Session State API, as follows:
+
+Python
+import streamlit as st
+
+if "celsius" not in st.session_state:
+    # set the initial default value of the slider widget
+    st.session_state.celsius = 50.0
+
+st.slider(
+    "Temperature in Celsius",
+    min_value=-100.0,
+    max_value=100.0,
+    key="celsius"
+)
+
+# This will get the value of the slider widget
+st.write(st.session_state.celsius)
+
+Copy
+There is a limitation to setting widget values using the Session State API.
+
+priority_high
+Important
+Streamlit does not allow setting widget values via the Session State API for the following commands:
+
+Buttons: st.button, st.download_button, st.form_submit_button, st.link_button, st.menu_button, and st.column_config.ButtonColumn.
+File and media inputs: st.file_uploader, st.camera_input, and st.audio_input.
+st.data_editor.
+The key of st.form.
+Chart selections in st.altair_chart, st.vega_lite_chart, st.echarts_chart, st.plotly_chart, and st.pydeck_chart.
+The following example will raise a StreamlitAPIException on trying to set the state of st.button via the Session State API:
+
+Python
+import streamlit as st
+
+if 'my_button' not in st.session_state:
+    st.session_state.my_button = True
+    # Streamlit will raise an Exception on trying to set the state of button
+
+st.button('Submit', key='my_button')
+
+Copy
+state-button-exception
+Serializable Session State
+Serialization refers to the process of converting an object or data structure into a format that can be persisted and shared, and allowing you to recover the data’s original structure. Python’s built-in pickle module serializes Python objects to a byte stream ("pickling") and deserializes the stream into an object ("unpickling").
+
+By default, Streamlit’s Session State allows you to persist any Python object for the duration of the session, irrespective of the object’s pickle-serializability. This property lets you store Python primitives such as integers, floating-point numbers, complex numbers and booleans, dataframes, and even lambdas returned by functions. However, some execution environments may require serializing all data in Session State, so it may be useful to detect incompatibility during development, or when the execution environment will stop supporting it in the future.
+
+To that end, Streamlit provides a runner.enforceSerializableSessionState configuration option that, when set to true, only allows pickle-serializable objects in Session State. To enable the option, either create a global or project config file with the following or use it as a command-line flag:
+
+TOML
+# .streamlit/config.toml
+[runner]
+enforceSerializableSessionState = true
+
+Copy
+By "pickle-serializable", we mean calling pickle.dumps(obj) should not raise a PicklingError exception. When the config option is enabled, adding unserializable data to session state should result in an exception. E.g.,
+
+Python
+import streamlit as st
+
+def unserializable_data():
+		return lambda x: x
+
+#👇 results in an exception when enforceSerializableSessionState is on
+st.session_state.unserializable = unserializable_data()
+
+Copy
+UnserializableSessionStateError
+priority_high
+Warning
+When runner.enforceSerializableSessionState is set to true, Session State implicitly uses the pickle module, which is known to be insecure. Ensure all data saved and retrieved from Session State is trusted because it is possible to construct malicious pickle data that will execute arbitrary code during unpickling. Never load data that could have come from an untrusted source in an unsafe mode or that could have been tampered with. Only load data you trust.
+
+Caveats and limitations
+Here are some limitations to keep in mind when using Session State:
+
+Session State exists for as long as the tab is open and connected to the Streamlit server. If the connection drops briefly, the tab reconnects to its existing session, which the server keeps for up to server.disconnectedSessionTTL seconds (120 by default). As soon as you close or reload the tab, everything stored in Session State is lost.
+Session State is not persisted. If the Streamlit server crashes, then everything stored in Session State gets wiped
+For caveats and limitations with the Session State API, please see the API limitations.
